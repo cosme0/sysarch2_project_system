@@ -1,0 +1,13 @@
+{
+  "name": "amdpms-arduino-bridge",
+  "version": "1.0.0",
+  "description": "Serial bridge that connects the AMDPMS PHP web app to the Arduino Uno 5-medicine dispenser.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "watch": "node watch-bridge.js"
+  },
+  "dependencies": {
+    "serialport": "^12.0.0"
+  }
+}
