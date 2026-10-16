@@ -7,12 +7,25 @@
  * firmware reports DISPENSE FAIL and keeps running instead of hanging forever
  * (which previously made the website show a silent timeout).
  *
+ * HONESTY RULE: "DONE CHx" is only printed after the PCA9685 acknowledged the
+ * PWM write that opened the hatch. A missing / unpowered / badly wired servo
+ * driver answers with a NAK, and that now produces "DISPENSE FAIL CHx" plus an
+ * "ERROR ..." reason, so the website can never complete a sale for a unit that
+ * never moved. The hatch is also driven back to CLOSED on every failure path,
+ * so a fault can never leave a channel open.
+ *
  * Protocol (unchanged — the Node bridge and PHP app need no changes):
  *   RX  "D1".."D5"   -> dispense one unit from channel 1..5
  *   RX  "BUZZ"       -> play the "done" buzzes
- *   TX  "DONE CHx"   -> successful dispense
- *   TX  "DISPENSE FAIL CHx" -> out of stock / channel error / I2C fault
- *   TX  "ERROR ..."  -> malformed command
+ *   RX  "SETSTOCK s1,s2,s3,s4,s5" -> resync the stock counters and LEDs
+ *   RX  "SELFTEST" -> probe the PCA9685 and report SELFTEST OK / FAIL
+ *   TX  "DONE CHx"   -> the hatch opened, so one unit was released
+ *   TX  "DISPENSE FAIL CHx" -> out of stock / channel error / PCA9685 fault
+ *   TX  "ERROR ..."  -> malformed command or hardware fault reason
+ *   TX  "WARN HATCH NOT CLOSED CHx" -> unit released, but the hatch did not
+ *                                       return to CLOSED (check the hardware)
+ *   TX  "READY"      -> boot self-test passed (PCA9685 detected)
+ *   TX  "NOTREADY ..." -> boot self-test failed (PCA9685 not detected)
  *
  * Wiring:
  *   PCA9685 SDA  -> Arduino A4
@@ -31,6 +44,7 @@
 
 Adafruit_PWMServoDriver pwm(0x40);
 
+const byte PCA_ADDRESS = 0x40;
 const byte SERVO_CHANNELS[5] = {0, 1, 2, 3, 4};
 const byte LED_PINS[5] = {2, 4, 7, 8, 12};
 const byte BUZZER_PIN = 13;
@@ -53,11 +67,17 @@ byte commandLength = 0;
 int stock[5] = {402, 99, 40, 100, 208};
 unsigned long lastBlinkTime = 0;
 bool blinkState = false;
+bool pcaHealthy = false;
 
+uint16_t angleToPulse(byte angle);
 void handleCommand(char *command, byte length);
 void updateStatusLights();
 void playDoneBuzzes();
 void dispenseChannel(byte index);
+bool pcaPresent();
+bool pcaInit();
+bool setServoAngle(byte index, byte angle);
+void reportFail(byte index, const __FlashStringHelper *reason);
 bool i2cHealthy();
 bool setStockFromString(char *p);
 
@@ -73,19 +93,27 @@ void setup() {
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
 
-  pwm.begin();
-  pwm.setPWMFreq(50);
-  delay(10);
-
   for (byte i = 0; i < 5; i++) {
     pinMode(LED_PINS[i], OUTPUT);
-    pwm.setPWM(SERVO_CHANNELS[i], 0, angleToPulse(CLOSED_POSITION));
-    delay(150);
+  }
+
+  // Boot self-test: the PCA9685 must ACK before anything can be dispensed.
+  pcaHealthy = pcaInit();
+
+  if (pcaHealthy) {
+    for (byte i = 0; i < 5; i++) {
+      setServoAngle(i, CLOSED_POSITION);
+      delay(150);
+    }
   }
 
   updateStatusLights();
   Serial.println(F("AMDPMS 5-MEDICINE DISPENSER"));
-  Serial.println(F("READY"));
+  if (pcaHealthy) {
+    Serial.println(F("READY"));
+  } else {
+    Serial.println(F("NOTREADY PCA9685 NOT FOUND"));
+  }
 }
 
 void loop() {
@@ -120,6 +148,65 @@ uint16_t angleToPulse(byte angle) {
   return map(angle, 0, 180, 150, 600);
 }
 
+// True when the PCA9685 answers at 0x40. A NAK here means the servo driver is
+// missing, unpowered, or SDA/SCL are wired wrong, i.e. nothing can move.
+bool pcaPresent() {
+  if (Wire.getWireTimeoutFlag()) {
+    Wire.clearWireTimeoutFlag();
+    return false;
+  }
+  Wire.beginTransmission(PCA_ADDRESS);
+  return Wire.endTransmission() == 0;
+}
+
+// (Re)initialise the servo driver: detect it, run its reset sequence and set
+// the 50 Hz servo refresh rate. Returns false when the chip does not ACK.
+bool pcaInit() {
+  if (!pwm.begin()) {
+    return false;
+  }
+  pwm.setPWMFreq(50);
+  delay(10);
+  if (Wire.getWireTimeoutFlag()) {
+    Wire.clearWireTimeoutFlag();
+    return false;
+  }
+  return pcaPresent();
+}
+
+// Drive one servo to an angle and report whether the PCA9685 acknowledged it.
+// A NAK or an I2C watchdog timeout triggers one re-initialisation + retry,
+// which recovers a chip that brown-out reset while a dispense was running.
+bool setServoAngle(byte index, byte angle) {
+  if (index > 4) {
+    return false;
+  }
+  if (Wire.getWireTimeoutFlag()) {
+    Wire.clearWireTimeoutFlag();
+  }
+
+  byte channel = SERVO_CHANNELS[index];
+  // The library returns 0 when the write was acknowledged, non-zero on NAK.
+  if (pwm.setPWM(channel, 0, angleToPulse(angle)) == 0 && !Wire.getWireTimeoutFlag()) {
+    return true;
+  }
+  if (Wire.getWireTimeoutFlag()) {
+    Wire.clearWireTimeoutFlag();
+  }
+
+  if (!pcaInit()) {
+    return false;
+  }
+  if (pwm.setPWM(channel, 0, angleToPulse(angle)) != 0) {
+    return false;
+  }
+  if (Wire.getWireTimeoutFlag()) {
+    Wire.clearWireTimeoutFlag();
+    return false;
+  }
+  return true;
+}
+
 // Parse "s1,s2,s3,s4,s5" (no leading comma) after "SETSTOCK". Returns true on
 // success. A missing/invalid value leaves that channel unchanged.
 bool setStockFromString(char *p) {
@@ -140,6 +227,13 @@ bool setStockFromString(char *p) {
   // Require exactly five values for a full sync.
   while (*p == ',' || *p == ' ') { p++; }
   return channel >= 5 && *p == '\0';
+}
+
+void reportFail(byte index, const __FlashStringHelper *reason) {
+  Serial.print(F("DISPENSE FAIL CH"));
+  Serial.println(index + 1);
+  Serial.print(F("ERROR "));
+  Serial.println(reason);
 }
 
 void handleCommand(char *command, byte length) {
@@ -172,6 +266,21 @@ void handleCommand(char *command, byte length) {
     return;
   }
 
+  // SELFTEST -> probe the PCA9685 right now and report the result, so the web
+  // app can verify the servo driver BEFORE a payment is taken.
+  if (length == 8 && command[0] == 'S' && command[1] == 'E' &&
+      command[2] == 'L' && command[3] == 'F' && command[4] == 'T' &&
+      command[5] == 'E' && command[6] == 'S' && command[7] == 'T') {
+    if (pcaPresent()) {
+      pcaHealthy = true;
+      Serial.println(F("SELFTEST OK"));
+    } else {
+      pcaHealthy = false;
+      Serial.println(F("SELFTEST FAIL PCA9685 NOT FOUND"));
+    }
+    return;
+  }
+
   if (length != 2 || command[0] != 'D' ||
       command[1] < '1' || command[1] > '5') {
     Serial.println(F("ERROR USE D1-D5"));
@@ -197,50 +306,53 @@ void dispenseChannel(byte index) {
   }
 
   if (stock[index] <= 0) {
-    Serial.print(F("DISPENSE FAIL CH"));
-    Serial.println(index + 1);
+    reportFail(index, F("STOCK EMPTY"));
     return;
   }
 
-  bool lastDispense = (stock[index] == 1);
-  byte pcaChannel = SERVO_CHANNELS[index];
-
-  if (!i2cHealthy()) {
-    Serial.print(F("DISPENSE FAIL CH"));
-    Serial.println(index + 1);
-    Serial.println(F("ERROR I2C TIMEOUT"));
+  // Nothing can move without the servo driver, so refuse up front instead of
+  // waiting through the open/close delays and then pretending it worked.
+  if (!pcaPresent()) {
+    pcaHealthy = false;
+    reportFail(index, F("PCA9685 NOT FOUND"));
     return;
   }
+  pcaHealthy = true;
 
-  // Open the hatch.
-  pwm.setPWM(pcaChannel, 0, angleToPulse(OPEN_POSITION));
-  if (!i2cHealthy()) {
-    Serial.print(F("DISPENSE FAIL CH"));
-    Serial.println(index + 1);
-    Serial.println(F("ERROR I2C TIMEOUT"));
+  // Open the hatch. Until this write is acknowledged nothing has physically
+  // moved, so the unit is not counted and the sale must not be completed.
+  if (!setServoAngle(index, OPEN_POSITION)) {
+    reportFail(index, F("PCA9685 DID NOT ACK THE OPEN COMMAND"));
+    // Best effort: park the channel even though the open already failed.
+    setServoAngle(index, CLOSED_POSITION);
     return;
   }
   delay(OPEN_TIME_MS);
 
-  // Close the hatch.
-  pwm.setPWM(pcaChannel, 0, angleToPulse(CLOSED_POSITION));
-  if (!i2cHealthy()) {
-    Serial.print(F("DISPENSE FAIL CH"));
-    Serial.println(index + 1);
-    Serial.println(F("ERROR I2C TIMEOUT"));
-    return;
-  }
+  // The hatch opened, so the unit has been released. Getting back to CLOSED
+  // is retried once; a unit that dropped must still be counted and reported.
+  bool closed = setServoAngle(index, CLOSED_POSITION);
   delay(RETURN_TIME_MS);
+  if (!closed) {
+    closed = setServoAngle(index, CLOSED_POSITION);
+    delay(RETURN_TIME_MS);
+  }
 
   stock[index]--;
   updateStatusLights();
 
-  if (lastDispense) {
-    playDoneBuzzes();
-  }
-
   Serial.print(F("DONE CH"));
   Serial.println(index + 1);
+
+  // Confirm the handover with an audible signal on every successful release,
+  // not just when the bin runs empty. Printed after DONE so the blocking tone
+  // does not delay the bridge's reply to the web app.
+  playDoneBuzzes();
+
+  if (!closed) {
+    Serial.print(F("WARN HATCH NOT CLOSED CH"));
+    Serial.println(index + 1);
+  }
 }
 
 void playDoneBuzzes() {

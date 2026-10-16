@@ -1,6 +1,7 @@
 <?php
-include("auth.php");
+require_once __DIR__ . '/auth.php';;
 requireLogin();
+requireStaff();
 include("includes/logout.php");
 require_once __DIR__ . '/includes/config.php';
 

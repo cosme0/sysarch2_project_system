@@ -1,7 +1,8 @@
 <?php
-include("auth.php");
-include("database.php");
+require_once __DIR__ . '/auth.php';;
+require_once __DIR__ . '/database.php';;
 requireLogin();
+requireStaff();
 include("includes/logout.php");
 require_once __DIR__ . '/includes/config.php';
 
@@ -14,7 +15,7 @@ if ($bridgeUp !== false) {
 }
 
 // --- Fetch live dashboard statistics from the database ---
-$dashConn = mysqli_connect("localhost", "root", "", "db_users");
+$dashConn = db();
 // Dispensed today
 $qToday = $dashConn->query("SELECT COUNT(id) AS c FROM dispense_history WHERE DATE(dispensed_at) = CURDATE()");
 $dispensedToday = (int)($qToday ? $qToday->fetch_assoc()['c'] : 0);
@@ -22,9 +23,9 @@ $dispensedToday = (int)($qToday ? $qToday->fetch_assoc()['c'] : 0);
 $qActive = $dashConn->query("SELECT COUNT(id) AS c FROM medications WHERE stock > 0");
 $activeRx = (int)($qActive ? $qActive->fetch_assoc()['c'] : 0);
 // Low stock alerts (below reorder threshold)
-$qLow = $dashConn->query("SELECT COUNT(id) AS c FROM medications WHERE stock < 20");
+$qLow = $dashConn->query("SELECT COUNT(id) AS c FROM medications WHERE stock < " . LOW_STOCK_THRESHOLD);
 $lowStock = (int)($qLow ? $qLow->fetch_assoc()['c'] : 0);
-mysqli_close($dashConn);
+
 
 $pageTitle = 'Dashboard | ' . SYSTEM_NAME_FULL;
 include("includes/site-header.php");
@@ -38,13 +39,17 @@ include("includes/site-header.php");
 
 <?php
 $arduinoConnected = $arduinoStatus['connected'] ?? false;
+$arduinoReady     = $arduinoStatus['ready'] ?? null; // null = not reported
+$arduinoHealthy   = $arduinoConnected && $arduinoReady !== false;
 $arduinoError    = $arduinoStatus['error'] ?? null;
 $arduinoPort     = $arduinoStatus['port'] ?? null;
 ?>
-<div class="message <?= $arduinoConnected ? 'success' : 'error' ?>" style="max-width:none;margin-bottom:24px;">
+<div class="message <?= $arduinoHealthy ? 'success' : 'error' ?>" style="max-width:none;margin-bottom:24px;">
     <strong>Dispenser hardware:</strong>
     <?php if ($arduinoStatus === null): ?>
         🔌 Arduino bridge is OFFLINE (start it with <code>node server.js</code> in <code>arduino-bridge/</code>).
+    <?php elseif ($arduinoConnected && $arduinoReady === false): ?>
+        ⚠️ Arduino is connected<?= $arduinoPort ? ' on ' . htmlspecialchars($arduinoPort) : '' ?>, but the <strong>PCA9685 servo driver is NOT responding</strong>. Nothing can be dispensed. <?= htmlspecialchars($arduinoError ?? 'Check the servo driver wiring and 5V supply.') ?>
     <?php elseif ($arduinoConnected): ?>
         ✅ Arduino is <strong>CONNECTED</strong><?= $arduinoPort ? ' on ' . htmlspecialchars($arduinoPort) : '' ?> — ready to dispense.
     <?php else: ?>
@@ -64,14 +69,14 @@ $arduinoPort     = $arduinoStatus['port'] ?? null;
         <p class="stat-hint">Medications currently in stock</p>
     </div>
     <div class="stat-card">
-        <p class="stat-label">Low stock alerts</p>
+        <p class="stat-label">Low machine stock</p>
         <p class="stat-value stat-warn"><?= $lowStock ?></p>
-        <p class="stat-hint">Below 20-unit reorder threshold</p>
+        <p class="stat-hint">Below reload threshold — check reserve</p>
     </div>
     <div class="stat-card">
         <p class="stat-label">System status</p>
-        <p class="stat-value <?= $arduinoConnected ? 'stat-ok' : 'stat-warn' ?>"><?= $arduinoConnected ? 'Online' : 'Offline' ?></p>
-        <p class="stat-hint"><?= $arduinoConnected ? 'Dispenser units connected' : 'Dispenser bridge offline' ?></p>
+        <p class="stat-value <?= $arduinoHealthy ? 'stat-ok' : 'stat-warn' ?>"><?= $arduinoHealthy ? 'Online' : 'Offline' ?></p>
+        <p class="stat-hint"><?= $arduinoHealthy ? 'Dispenser units connected' : ($arduinoConnected ? 'Servo driver fault' : 'Dispenser bridge offline') ?></p>
     </div>
 </div>
 

@@ -1,17 +1,15 @@
 <?php
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path' => '/',
-    'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
-    'httponly' => true,
-    'samesite' => 'Lax'
-]);
-session_start();
-include("database.php");
-include("auth.php");
-require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/auth.php';;
+require_once __DIR__ . '/database.php';;
 
 $msg = "";
+$csrfFailed = false;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !verifyCsrfToken($_POST['_csrf'] ?? null)) {
+    $csrfFailed = true;
+    $msg = 'Your form session expired. Please refresh the page and try again.';
+    log_activity('csrf_rejected', 'auth', 'Rejected a form submission with a missing or invalid CSRF token.', 'warning', 'request', basename($_SERVER['PHP_SELF'] ?? 'index.php'));
+}
 
 if (isset($_GET['error'])) {
     $authMsg = getAuthErrorMessage($_GET['error']);
@@ -21,7 +19,7 @@ if (isset($_GET['error'])) {
 }
 
 // --- REGISTER ---
-if (isset($_POST["signUp"])) {
+if (!$csrfFailed && isset($_POST["signUp"])) {
     $fname = filter_input(INPUT_POST, "fname", FILTER_SANITIZE_SPECIAL_CHARS);
     $lname = filter_input(INPUT_POST, "lname", FILTER_SANITIZE_SPECIAL_CHARS);
     $email = filter_input(INPUT_POST, "email", FILTER_SANITIZE_EMAIL);
@@ -29,12 +27,15 @@ if (isset($_POST["signUp"])) {
 
     if (empty($fname) || empty($lname) || empty($email) || empty($password)) {
         $msg = "Please fill in all fields.";
+        log_activity('register_rejected', 'auth', 'Registration attempt with missing fields.', 'notice', 'user', $email ?: null, null, $email ?: null);
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $msg = "Please enter a valid email address.";
+        log_activity('register_rejected', 'auth', 'Registration attempt with a malformed email address.', 'notice', 'user', $email, null, $email);
     } else {
         $passwordError = validatePasswordStrength($password);
         if ($passwordError !== null) {
             $msg = $passwordError;
+            log_activity('register_rejected', 'auth', 'Registration rejected: ' . $passwordError, 'notice', 'user', $email, null, $email);
         } else {
             $checkStmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
             $checkStmt->bind_param("s", $email);
@@ -42,7 +43,8 @@ if (isset($_POST["signUp"])) {
             $checkRes = $checkStmt->get_result();
 
             if ($checkRes->num_rows > 0) {
-                $msg = "That email is already registered. <a href='#' onclick='showSignIn()'>Login instead</a>.";
+                $msg = "That email is already registered. <a href='#' class='link-primary' onclick='showSignIn(); return false;'>Login instead</a>.";
+                log_activity('register_rejected', 'auth', 'Registration attempt for an email that already exists.', 'warning', 'user', $email, null, $email);
             } else {
                 // First registered user becomes the administrator.
                 $countStmt = $conn->query("SELECT COUNT(*) AS c FROM users");
@@ -53,8 +55,16 @@ if (isset($_POST["signUp"])) {
                 $insStmt = $conn->prepare("INSERT INTO users (fname, lname, email, `pass`, role) VALUES (?, ?, ?, ?, ?)");
                 $insStmt->bind_param("sssss", $fname, $lname, $email, $hash, $role);
                 if ($insStmt->execute()) {
+                    $userId = (int)$insStmt->insert_id;
                     $roleInt = $role === 'admin' ? 1 : 0;
-                    setUserSession($email, $fname, $lname, false, $roleInt, (int)$insStmt->insert_id);
+                    setUserSession($email, $fname, $lname, false, $roleInt, $userId);
+
+                    if ($roleInt === 1) {
+                        log_activity('account_created', 'auth', "First user registered and was granted the administrator role.", 'critical', 'user', (string)$userId, $userId, $email);
+                    } else {
+                        log_activity('account_created', 'auth', "Registered a new staff account ({$fname} {$lname}).", 'notice', 'user', (string)$userId, $userId, $email);
+                    }
+
                     header("Location: " . ($roleInt === 1 ? 'admin.php' : 'home.php'));
                     exit;
                 } else {
@@ -66,7 +76,7 @@ if (isset($_POST["signUp"])) {
 }
 
 // --- LOGIN ---
-if (isset($_POST["signIn"])) {
+if (!$csrfFailed && isset($_POST["signIn"])) {
     $loginId = trim($_POST["login_id"] ?? "");
     $password = $_POST["password"] ?? "";
     $rememberMe = isset($_POST["remember_me"]);
@@ -88,13 +98,31 @@ if (isset($_POST["signIn"])) {
                 $remaining = getLockoutRemainingSeconds($lastFailed);
                 $minutes = (int)max(1, ceil($remaining / 60));
                 $msg = "Your account has been locked due to multiple failed login attempts. Try again in {$minutes} minute(s) or contact the system administrator.";
+                log_activity('login_locked', 'auth', "Sign-in refused: account locked, {$remaining}s of lockout remaining.", 'warning', 'user', $loginId, (int)$row['id'], $row['email']);
             } elseif (password_verify($password, $row['pass'])) {
-                $resetStmt = $conn->prepare("UPDATE users SET failed_attempts = 0, last_failed = NULL WHERE id = ?");
+                $resetStmt = $conn->prepare("UPDATE users SET failed_attempts = 0, last_failed = NULL, last_login = NOW() WHERE id = ?");
                 $resetStmt->bind_param("i", $row['id']);
                 $resetStmt->execute();
 
                 $roleInt = ($row['role'] ?? 'staff') === 'admin' ? 1 : 0;
                 setUserSession($row['email'], $row['fname'], $row['lname'], $rememberMe, $roleInt, (int)$row['id']);
+
+                log_activity(
+                    'login_success',
+                    'auth',
+                    sprintf(
+                        'Signed in as %s (%s)%s.',
+                        ($roleInt === 1 ? 'administrator' : 'staff'),
+                        $row['email'],
+                        $rememberMe ? ' with "remember me" enabled' : ''
+                    ),
+                    'info',
+                    'user',
+                    (string)$row['id'],
+                    (int)$row['id'],
+                    $row['email']
+                );
+
                 header("Location: " . ($roleInt === 1 ? 'admin.php' : 'home.php'));
                 exit;
             } else {
@@ -106,17 +134,21 @@ if (isset($_POST["signIn"])) {
 
                 if ($newAttempts >= MAX_LOGIN_ATTEMPTS) {
                     $msg = "Your account has been locked due to multiple failed login attempts.";
+                    log_activity('login_failed', 'auth', "Wrong password on attempt {$newAttempts}; account is now locked for " . LOCKOUT_MINUTES . ' minutes.', 'critical', 'user', $loginId, (int)$row['id'], $row['email']);
                 } else {
                     $msg = "Invalid username or password.";
+                    log_activity('login_failed', 'auth', "Wrong password on attempt {$newAttempts} of " . MAX_LOGIN_ATTEMPTS . '.', 'warning', 'user', $loginId, (int)$row['id'], $row['email']);
                 }
             }
         } else {
             $msg = "Invalid username or password.";
+            log_activity('login_failed', 'auth', 'Sign-in attempt for an email address that is not registered.', 'warning', 'user', $loginId, null, $loginId);
         }
     }
 }
 
-mysqli_close($conn);
+// The connection is shared and reused across the app; it is not closed here.
+
 
 // Track whether the sign-up form should be displayed (e.g., after a failed registration)
 $showSignUp = isset($_POST['signUp']) ? true : false;
@@ -130,16 +162,32 @@ $showSignUp = isset($_POST['signUp']) ? true : false;
 <title><?= SYSTEM_NAME_FULL ?> | Login</title>
  <link rel="stylesheet" href="css/pharmacy.css?v=<?= filemtime(__DIR__ . '/css/pharmacy.css') ?>">
 <style>.auth-card .btn-primary { margin-top: 8px; }</style>
-<script src="index.js" defer></script>
 <script>
-function showSignUp() {
-    document.getElementById("signup").style.display = "block";
-    document.getElementById("signIn").style.display = "none";
+(function(){try{var t=localStorage.getItem('amdpms-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();
+</script>
+<script src="ui.js?v=<?= filemtime(__DIR__ . '/ui.js') ?>" defer></script>
+<script>
+function switchAuthCard(targetId, slideClass) {
+    var cards = document.querySelectorAll('.auth-card');
+    var incoming = document.getElementById(targetId);
+    if (!incoming) return;
+
+    cards.forEach(function (card) {
+        if (card !== incoming && card.style.display !== 'none') {
+            card.style.display = 'none';
+        }
+    });
+
+    incoming.style.display = 'block';
+    incoming.classList.remove('auth-slide-in-right', 'auth-slide-in-left');
+    void incoming.offsetWidth;
+    incoming.classList.add(slideClass);
+    setTimeout(function () {
+        incoming.classList.remove('auth-slide-in-right', 'auth-slide-in-left');
+    }, 400);
 }
-function showSignIn() {
-    document.getElementById("signup").style.display = "none";
-    document.getElementById("signIn").style.display = "block";
-}
+function showSignUp() { switchAuthCard('signup', 'auth-slide-in-right'); }
+function showSignIn() { switchAuthCard('signIn', 'auth-slide-in-left'); }
 </script>
 </head>
 <body class="auth-page">
@@ -147,6 +195,7 @@ function showSignIn() {
 <div class="auth-topbar">
     <?php $brandHref = 'index.php'; include __DIR__ . '/includes/brand-mark.php'; ?>
     <p class="auth-system-tagline"><?= SYSTEM_TAGLINE ?></p>
+    <button type="button" class="theme-toggle" aria-label="Toggle color theme" aria-pressed="false"><span class="theme-icon" aria-hidden="true">🌙</span></button>
 </div>
 
 <div class="auth-wrap">
@@ -168,12 +217,16 @@ $prefillEmail = htmlspecialchars($_POST['email'] ?? '', ENT_QUOTES);
     <h2>Sign in</h2>
     <p class="subtitle">Sign in to access the pharmacy management portal.</p>
     <form action="index.php" method="post">
+        <?php csrf_field(); ?>
         <div class="input-group">
             <input type="text" name="login_id" placeholder="Username or Email Address" required autocomplete="username">
         </div>
         <div class="input-group" style="position: relative;">
             <input type="password" id="loginPassword" name="password" placeholder="Password" required autocomplete="current-password">
-            <span class="toggle-password" onclick="togglePassword('loginPassword')">Show</span>
+            <button type="button" class="toggle-password" onclick="togglePassword('loginPassword')" aria-label="Show password">
+                <svg class="eye-icon eye-open" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="eye-icon eye-off" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
         </div>
         <label class="remember-row">
             <input type="checkbox" name="remember_me" value="1">
@@ -182,8 +235,8 @@ $prefillEmail = htmlspecialchars($_POST['email'] ?? '', ENT_QUOTES);
         <input type="submit" class="btn-primary" value="Login" name="signIn">
     </form>
     <p style="margin-top:16px;"><a class="link-primary" href="forgot_password.php">Forgot password?</a></p>
-    <p style="margin-top:12px;font-size:0.9rem;color:var(--text-muted);">New here?</p>
-    <button id="signUpButton" type="button" class="btn-secondary">Create account</button>
+    <p style="margin-top:12px;font-size:0.875rem;color:var(--text-muted);">New here?</p>
+    <button id="signUpButton" type="button" class="btn-secondary" onclick="showSignUp()">Create account</button>
 </div>
 
 <!-- SIGN UP -->
@@ -191,6 +244,7 @@ $prefillEmail = htmlspecialchars($_POST['email'] ?? '', ENT_QUOTES);
     <h2>Create account</h2>
     <p class="subtitle">Register authorized staff access to <?= SYSTEM_ACRONYM ?>.</p>
     <form action="index.php" method="post">
+        <?php csrf_field(); ?>
         <div class="input-group">
             <input type="text" name="fname" placeholder="First Name" value="<?= $prefillFname ?>" required>
         </div>
@@ -202,14 +256,29 @@ $prefillEmail = htmlspecialchars($_POST['email'] ?? '', ENT_QUOTES);
         </div>
         <div class="input-group" style="position: relative;">
             <input type="password" id="signupPassword" name="password" placeholder="Password" required>
-            <span class="toggle-password" onclick="togglePassword('signupPassword')">Show</span>
+            <button type="button" class="toggle-password" onclick="togglePassword('signupPassword')" aria-label="Show password">
+                <svg class="eye-icon eye-open" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="eye-icon eye-off" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
         </div>
         <p class="password-hint">Password must be at least 8 characters and include uppercase, lowercase, a number, and a special character (e.g. Hrm@2026!).</p>
         <input type="submit" class="btn-primary" value="Sign Up" name="signUp">
     </form>
-    <p style="margin-top:12px;font-size:0.9rem;color:var(--text-muted);">Already registered?</p>
-    <button id="signInButton" type="button" class="btn-secondary">Back to login</button>
+    <p style="margin-top:12px;font-size:0.875rem;color:var(--text-muted);">Already registered?</p>
+    <button id="signInButton" type="button" class="btn-secondary" onclick="showSignIn()">Back to login</button>
 </div>
+
+<!-- ABOUT THE SYSTEM -->
+<section class="auth-about" aria-labelledby="auth-about-title">
+    <h2 id="auth-about-title">About the system</h2>
+    <p><?= SYSTEM_NAME_FULL ?> is a web-based portal for managing medication inventory, processing dispense requests, and keeping staff accounts secure.</p>
+    <ul>
+        <li>User authentication &amp; recovery</li>
+        <li>Medication inventory &amp; stock monitoring</li>
+        <li>Automated dispensing workflow</li>
+        <li>Reports &amp; activity tracking</li>
+    </ul>
+</section>
 </div>
 
 <script>
@@ -222,7 +291,8 @@ function togglePassword(inputId) {
 
     const toggle = input.closest('.input-group')?.querySelector('.toggle-password');
     if (toggle) {
-        toggle.textContent = isHidden ? 'Hide' : 'Show';
+        toggle.classList.toggle('is-visible', !isHidden);
+        toggle.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
     }
 }
 </script>

@@ -1,5 +1,5 @@
 <?php
-include("auth.php");
+require_once __DIR__ . '/auth.php';;
 requireLogin();
 include("includes/logout.php");
 require_once __DIR__ . '/includes/config.php';
@@ -34,7 +34,7 @@ include("includes/site-header.php");
             <strong>20 min idle timeout</strong>
         </div>
     </div>
-    <p style="margin-top:24px;font-size:0.85rem;color:var(--text-muted);text-align:center;">
+    <p style="margin-top:24px;font-size:0.875rem;color:var(--text-muted);text-align:center;">
         Reset password via <a class="link-primary" href="forgot_password.php">Forgot password</a> (available from the login screen after logout).
     </p>
 </div>

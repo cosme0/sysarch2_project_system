@@ -9,9 +9,9 @@ session_set_cookie_params([
 ]);
 session_start();
 
-include("database.php");
+require_once __DIR__ . '/database.php';;
 
-include("auth.php");
+require_once __DIR__ . '/auth.php';;
 
 require_once __DIR__ . '/includes/config.php';
 
@@ -23,7 +23,10 @@ $success = false;
 // track whether email was successfully handed off to SMTP lib
 $mailSent = false;
 
-if (isset($_POST["request_reset"])) {
+// CSRF guard
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !verifyCsrfToken($_POST['_csrf'] ?? null)) {
+    $msg = "Your form session expired. Please refresh the page and try again.";
+} elseif (isset($_POST["request_reset"])) {
 
     $email = filter_input(INPUT_POST, "email", FILTER_SANITIZE_EMAIL);
 
@@ -97,14 +100,26 @@ if (isset($_POST["request_reset"])) {
                 }
             }
 
-            // Only set session token for fallback/debug display if mail wasn't sent
+            // Only keep the token in the error log for developers when the email
+            // could not be sent. It is NEVER rendered on the page.
             if (!$mailSent) {
-                // keep demo token available only when SMTP not configured
-                $_SESSION['reset_demo_token'] = $token;
+                error_log("Password reset code for {$email}: {$token} (email not sent)");
+                unset($_SESSION['reset_demo_token']);
             } else {
-                // do not store token in session once emailed; DB holds it
                 unset($_SESSION['reset_demo_token']);
             }
+
+            log_activity(
+                'reset_code_issued',
+                'auth',
+                'Issued a password reset code for ' . $email
+                    . ($mailSent ? ' and emailed it.' : '; the email could not be sent so the code was written to the error log only.'),
+                $mailSent ? 'notice' : 'warning',
+                'user',
+                $email,
+                null,
+                $email
+            );
         }
 
         $success = true;
@@ -121,7 +136,7 @@ if (isset($_POST["request_reset"])) {
     }
 }
 
-mysqli_close($conn);
+
 
 ?>
 
@@ -148,6 +163,7 @@ mysqli_close($conn);
     <p class="subtitle">Recover access to your <?= SYSTEM_ACRONYM ?> staff account.</p>
 
     <form action="forgot_password.php" method="post">
+        <?php csrf_field(); ?>
         <div class="input-group">
             <input type="email" name="email" placeholder="Registered email address" required>
         </div>
@@ -160,16 +176,6 @@ mysqli_close($conn);
 
 <?php if (!empty($msg)): ?>
 <div class="message <?= $success ? 'success' : 'error' ?>"><?= htmlspecialchars($msg) ?></div>
-<?php endif; ?>
-
-<?php if ($success && isset($_SESSION['reset_demo_token']) && !empty($_SESSION['reset_demo_token'])): ?>
-
-<div class="auth-card" style="margin-top:16px;">
-    <p style="font-size:0.85rem;color:var(--text-muted);"><strong>Your verification code (demo):</strong></p>
-    <code style="font-size:1.5rem;letter-spacing:6px;color:var(--primary-dark);"><?= htmlspecialchars($_SESSION['reset_demo_token']) ?></code>
-    <p style="font-size:0.75rem;color:var(--text-muted);margin-top:12px;">Enter this code on the <a class="link-primary" href="reset_password.php">Reset password</a> page. (This is shown only because email sending is not configured.)</p>
-</div>
-
 <?php endif; ?>
 
 </div>

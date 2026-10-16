@@ -1,12 +1,15 @@
 <?php
-include("auth.php");
+require_once __DIR__ . '/auth.php';;
 requireLogin();
 include("includes/logout.php");
 require_once __DIR__ . '/includes/config.php';
 
 $contactMsg = '';
 $contactError = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_contact'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCsrfToken($_POST['_csrf'] ?? null)) {
+        $contactError = 'Your form session expired. Please refresh the page and try again.';
+    } elseif (isset($_POST['send_contact'])) {
     $name    = trim($_POST['name'] ?? '');
     $email   = trim($_POST['email'] ?? '');
     $subject = trim($_POST['subject'] ?? '');
@@ -15,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_contact'])) {
     if ($name === '' || $email === '' || $message === '') {
         $contactError = 'Please fill in your name, email, and a message before submitting.';
     } else {
-        $ticketConn = mysqli_connect("localhost", "root", "", "db_users");
+        $ticketConn = db();
         if (!$ticketConn) {
             $contactError = 'Could not record the ticket. Please try again later.';
         } else {
@@ -24,10 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_contact'])) {
             );
             $stmt->bind_param("ssss", $name, $email, $subject, $message);
             $stmt->execute();
+            $newTicketId = (int)$ticketConn->insert_id;
             $stmt->close();
-            mysqli_close($ticketConn);
+            log_activity('ticket_created', 'support', "Support ticket #$newTicketId submitted: $subject", 'notice', 'ticket', (string)$newTicketId);
             $contactMsg = 'Your support ticket has been recorded. The system administrator will follow up shortly.';
         }
+    }
     }
 }
 
@@ -47,6 +52,7 @@ include("includes/site-header.php");
     <?php endif; ?>
 
     <form method="post" action="contact.php">
+        <?php csrf_field(); ?>
         <div class="form-group">
             <label for="name">Staff name</label>
             <input type="text" id="name" name="name" value="<?= htmlspecialchars(trim(($_SESSION['fname'] ?? '') . ' ' . ($_SESSION['lname'] ?? ''))) ?>" required>
@@ -72,7 +78,7 @@ include("includes/site-header.php");
         <button type="submit" name="send_contact" class="btn-primary">Submit ticket</button>
     </form>
 
-    <p style="margin-top:24px;text-align:center;font-size:0.9rem;color:var(--text-muted);">
+    <p style="margin-top:24px;text-align:center;font-size:0.875rem;color:var(--text-muted);">
         <strong>IT helpdesk:</strong> support@amdpms.local<br>
         <strong>On-site pharmacy:</strong> Building A, Room 204 &nbsp;|&nbsp; Ext. 4402
     </p>

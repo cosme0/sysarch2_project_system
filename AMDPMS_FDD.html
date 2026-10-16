@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AMDPMS - Feature-Driven Design (FDD)</title>
+<style>
+  :root{
+    --primary:#0c7a73; --primary-dark:#0f766e; --accent:#0270ad;
+    --text:#134e4a; --muted:#5b7371; --bg:#f0fdfa; --card:#fff; --line:#cbd5e1;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"DM Sans",Segoe UI,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;padding:28px}
+  .wrap{max-width:1240px;margin:0 auto}
+  header{background:linear-gradient(135deg,var(--primary-dark),var(--accent));color:#fff;border-radius:16px;padding:26px 30px;box-shadow:0 8px 30px rgba(12,122,115,.22)}
+  header h1{font-size:1.75rem;letter-spacing:-.01em}
+  header p{opacity:.95;font-size:.95rem;margin-top:6px}
+  header .tag{display:inline-block;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);border-radius:999px;padding:3px 12px;font-size:.75rem;margin-top:12px;margin-right:6px}
+  h2{font-size:1.25rem;margin:32px 0 6px;padding-bottom:8px;border-bottom:2px solid var(--primary)}
+  h2 .n{display:inline-block;background:var(--primary);color:#fff;border-radius:7px;padding:1px 9px;font-size:.8rem;vertical-align:middle;margin-right:8px}
+  .lead{color:var(--muted);font-size:.9rem;margin-bottom:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 3px 14px rgba(12,122,115,.07)}
+  /* feature list */
+  table{width:100%;border-collapse:collapse;font-size:.855rem}
+  th{background:#f1f5f9;color:var(--text);text-align:left;padding:9px 10px;border-bottom:2px solid var(--primary);font-size:.76rem;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+  td{padding:7px 10px;border-bottom:1px solid #eef2f7;vertical-align:top}
+  tr:nth-child(even) td{background:#fafdfc}
+  .fid{font-weight:700;color:var(--primary);white-space:nowrap}
+  code{font-family:Consolas,Menlo,monospace;font-size:.8rem;color:var(--accent);background:#eff6ff;padding:1px 5px;border-radius:4px}
+  .cls{color:var(--primary-dark);font-weight:600;white-space:nowrap}
+  .mod{color:var(--muted);font-size:.8rem;white-space:nowrap}
+  /* fdt */
+  .fdt{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 6px;box-shadow:0 3px 14px rgba(12,122,115,.07)}
+  .fdt svg{display:block;min-width:1150px}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;font-size:.78rem;color:var(--muted)}
+  .legend i{display:inline-block;width:15px;height:15px;border-radius:4px;vertical-align:-3px;margin-right:6px;border:1px solid}
+  /* seams */
+  .seams{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+  .seams li{list-style:none;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--primary);border-radius:9px;padding:9px 12px}
+  .seams b{display:block;font-size:.85rem}
+  .seams span{font-size:.76rem;color:var(--muted)}
+  /* class model */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  .classcard{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:.78rem}
+  .ch{background:var(--primary-dark);color:#fff;padding:6px 10px;font-weight:700;font-size:.82rem}
+  .cs{padding:5px 10px;background:#eff6ff;color:var(--accent);font-family:Consolas,Menlo,monospace;font-size:.72rem;border-bottom:1px solid #e2e8f0}
+  .ca,.co{padding:6px 10px;color:var(--muted);font-family:Consolas,Menlo,monospace;font-size:.7rem;line-height:1.45}
+  .co{border-top:1px solid #eef2f7;color:var(--primary-dark);font-weight:600}
+  .ca span,.co span{display:block;font-family:"DM Sans",sans-serif;font-size:.64rem;letter-spacing:.09em;text-transform:uppercase;color:#94a3b8;margin-bottom:2px}
+  /* key relationships */
+  .rel{font-size:.84rem;color:var(--muted)}
+  .rel li{margin:5px 0 5px 18px}
+  .rel b{color:var(--text)}
+  @media print{
+    @page{size:A3 landscape;margin:10mm}
+    body{background:#fff;padding:0}
+    .card,.fdt{box-shadow:none}
+    header{box-shadow:none}
+    .noprint{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Feature-Driven Design (FDD)</h1>
+  <p>Automated Medication Dispensing and Pharmacy Management System (AMDPMS)</p>
+  <span class="tag">42 features</span>
+  <span class="tag">9 seams</span>
+  <span class="tag">22 owning classes</span>
+  <span class="tag">Feature-Driven Design - DeLuccia &amp; Constantine</span>
+</header>
+
+<h2><span class="n">1</span>Seams &amp; Feature List (FDB)</h2>
+<p class="lead">The backlog is sliced by seam so each group of features touches a small, related set of files. Feature names follow the FDD template <i>verb phrase + object of benefit + qualifier</i>.</p>
+<div class="card">
+  <ul class="seams"><li><b>M1 Access Control</b><span>7 features</span></li><li><b>M2 Medication Catalog</b><span>4 features</span></li><li><b>M3 Dispense Cart</b><span>4 features</span></li><li><b>M4 Checkout &amp; Sales</b><span>5 features</span></li><li><b>M5 Hardware Dispensing</b><span>7 features</span></li><li><b>M6 Receipt</b><span>2 features</span></li><li><b>M7 Reporting</b><span>5 features</span></li><li><b>M8 Auditing &amp; Support</b><span>4 features</span></li><li><b>M9 Administration</b><span>4 features</span></li></ul>
+</div>
+
+<h2><span class="n">2</span>Feature Decomposition Tree (FDT)</h2>
+<p class="lead">Every feature decomposes into exactly two things: the <b>process</b> that implements it and the <b>class / owning entity</b> that holds its state. All process names are real routines in this repository.</p>
+<div class="fdt"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 1254" width="100%" height="1254" font-family="DM Sans, Segoe UI, system-ui, sans-serif" role="img" aria-label="Feature Decomposition Tree">
+<defs><marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5b7371"/></marker></defs>
+<text x="20" y="8" font-size="11" font-weight="700" letter-spacing="0.06em" fill="#5b7371">FEATURE / SEAM</text>
+<text x="236" y="8" font-size="11" font-weight="700" letter-spacing="0.06em" fill="#5b7371">FEATURE (VERB + OBJECT + QUALIFIER)</text>
+<text x="566" y="8" font-size="11" font-weight="700" letter-spacing="0.06em" fill="#5b7371">PROCESS (IMPLEMENTING ROUTINES)</text>
+<text x="902" y="8" font-size="11" font-weight="700" letter-spacing="0.06em" fill="#5b7371">CLASS / OWNING ENTITY</text>
+<path d="M30 28 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 28 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 28 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="17" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="32" font-size="11.5" fill="#134e4a">F1. Authenticate the user at sign-in</text>
+<rect x="566" y="17" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="32" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">requireLogin(), setUserSession()</text>
+<rect x="902" y="17" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="32" font-size="11" font-weight="600" fill="#0f766e">User  +  Session</text>
+<path d="M30 54 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 54 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 54 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="43" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="58" font-size="11.5" fill="#134e4a">F2. Enforce the account lockout before sign-in</text>
+<rect x="566" y="43" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="58" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">isAccountLocked(), getLockoutRemainingSeconds()</text>
+<rect x="902" y="43" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="58" font-size="11" font-weight="600" fill="#0f766e">User</text>
+<path d="M30 80 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 80 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 80 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="69" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="84" font-size="11.5" fill="#134e4a">F3. Enforce the password policy for an account</text>
+<rect x="566" y="69" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="84" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">validatePasswordStrength()</text>
+<rect x="902" y="69" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="84" font-size="11" font-weight="600" fill="#0f766e">User</text>
+<path d="M30 106 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 106 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 106 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="95" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="110" font-size="11.5" fill="#134e4a">F4. Authorise the request against the role guard</text>
+<rect x="566" y="95" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="110" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">requireAdmin(), requireStaff(), isAdmin()</text>
+<rect x="902" y="95" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="110" font-size="11" font-weight="600" fill="#0f766e">User  +  AccessGuard</text>
+<path d="M30 132 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 132 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 132 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="121" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="136" font-size="11.5" fill="#134e4a">F5. Guard the request against CSRF forgery</text>
+<rect x="566" y="121" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="136" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">getCsrfToken(), verifyCsrfToken()</text>
+<rect x="902" y="121" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="136" font-size="11" font-weight="600" fill="#0f766e">Session  +  CsrfToken</text>
+<path d="M30 158 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 158 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 158 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="147" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="162" font-size="11.5" fill="#134e4a">F6. Recover a lost password by email token</text>
+<rect x="566" y="147" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="162" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">reset_password.php, forgot_password.php</text>
+<rect x="902" y="147" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="162" font-size="11" font-weight="600" fill="#0f766e">User  +  PasswordResetToken</text>
+<path d="M30 184 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 184 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 184 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="173" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="188" font-size="11.5" fill="#134e4a">F7. Terminate the session at sign-out</text>
+<rect x="566" y="173" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="188" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">includes/logout.php</text>
+<rect x="902" y="173" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="188" font-size="11" font-weight="600" fill="#0f766e">Session</text>
+<rect x="8" y="10" width="1164" height="194" rx="10" fill="#0c7a73" opacity="0.045"/>
+<path d="M30 224 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 224 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 224 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="213" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="228" font-size="11.5" fill="#134e4a">F8. Display the medication catalog with stock levels</text>
+<rect x="566" y="213" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="228" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">badgeFor(), barFor()</text>
+<rect x="902" y="213" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="228" font-size="11" font-weight="600" fill="#0f766e">Medication</text>
+<path d="M30 250 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 250 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 250 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="239" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="254" font-size="11.5" fill="#134e4a">F9. Flag a medication that is low on stock</text>
+<rect x="566" y="239" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="254" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">barFor(), badgeFor()</text>
+<rect x="902" y="239" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="254" font-size="11" font-weight="600" fill="#0f766e">Medication</text>
+<path d="M30 276 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 276 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 276 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="265" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="280" font-size="11.5" fill="#134e4a">F10. Record a stock adjustment for a medication</text>
+<rect x="566" y="265" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="280" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">recordStockMovement()</text>
+<rect x="902" y="265" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="280" font-size="11" font-weight="600" fill="#0f766e">StockMovement  +  Medication</text>
+<path d="M30 302 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 302 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 302 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="291" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="306" font-size="11.5" fill="#134e4a">F11. Synchronise channel stock to the dispenser</text>
+<rect x="566" y="291" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="306" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">syncStockToArduino()</text>
+<rect x="902" y="291" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="306" font-size="11" font-weight="600" fill="#0f766e">Medication  +  SerialBridge</text>
+<rect x="8" y="206" width="1164" height="116" rx="10" fill="#0c7a73" opacity="0.045"/>
+<path d="M30 342 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 342 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 342 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="331" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="346" font-size="11.5" fill="#134e4a">F12. Restore the saved cart for the session</text>
+<rect x="566" y="331" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="346" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">restoreCart(), saveCart()</text>
+<rect x="902" y="331" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="346" font-size="11" font-weight="600" fill="#0f766e">DispenseCart  +  Session</text>
+<path d="M30 368 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 368 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 368 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="357" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="372" font-size="11.5" fill="#134e4a">F13. Add a medication line to the cart</text>
+<rect x="566" y="357" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="372" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">ui.js addToCart</text>
+<rect x="902" y="357" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="372" font-size="11" font-weight="600" fill="#0f766e">DispenseCart  +  Medication</text>
+<path d="M30 394 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 394 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 394 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="383" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="398" font-size="11.5" fill="#134e4a">F14. Recalculate the cart subtotal, count and total</text>
+<rect x="566" y="383" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="398" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">buildCartSummary(), peso()</text>
+<rect x="902" y="383" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="398" font-size="11" font-weight="600" fill="#0f766e">DispenseCart</text>
+<path d="M30 420 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 420 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 420 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="409" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="424" font-size="11.5" fill="#134e4a">F15. Remove a cart line and clear the whole cart</text>
+<rect x="566" y="409" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="424" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">clearStoredCart()</text>
+<rect x="902" y="409" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="424" font-size="11" font-weight="600" fill="#0f766e">DispenseCart</text>
+<rect x="8" y="324" width="1164" height="116" rx="10" fill="#0c7a73" opacity="0.045"/>
+<path d="M30 460 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 460 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 460 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="449" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="464" font-size="11.5" fill="#134e4a">F16. Reprice the cart at checkout to stop tampering</text>
+<rect x="566" y="449" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="464" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">price_order()</text>
+<rect x="902" y="449" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="464" font-size="11" font-weight="600" fill="#0f766e">DispenseCart  +  Sale</text>
+<path d="M30 486 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 486 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 486 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="475" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="490" font-size="11.5" fill="#134e4a">F17. Reject a stale or mismatched cart at checkout</text>
+<rect x="566" y="475" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="490" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">order_is_stale()</text>
+<rect x="902" y="475" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="490" font-size="11" font-weight="600" fill="#0f766e">Sale</text>
+<path d="M30 512 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 512 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 512 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="501" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="516" font-size="11.5" fill="#134e4a">F18. Validate the selected payment method</text>
+<rect x="566" y="501" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="516" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">selectedMethod()</text>
+<rect x="902" y="501" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="516" font-size="11" font-weight="600" fill="#0f766e">Payment</text>
+<path d="M30 538 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 538 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 538 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="527" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="542" font-size="11.5" fill="#134e4a">F19. Compute the tendered amount and the change due</text>
+<rect x="566" y="527" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="542" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">order_totals(), updateCash()</text>
+<rect x="902" y="527" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="542" font-size="11" font-weight="600" fill="#0f766e">Sale  +  Payment</text>
+<path d="M30 564 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 564 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 564 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="553" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="568" font-size="11.5" fill="#134e4a">F20. Assign a unique batch reference to the order</text>
+<rect x="566" y="553" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="568" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">newBatchRef()</text>
+<rect x="902" y="553" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="568" font-size="11" font-weight="600" fill="#0f766e">Sale  +  DispenseBatch</text>
+<rect x="8" y="442" width="1164" height="142" rx="10" fill="#0c7a73" opacity="0.045"/>
+<path d="M30 604 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 604 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 604 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="593" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="608" font-size="11.5" fill="#134e4a">F21. Poll the bridge for dispenser availability</text>
+<rect x="566" y="593" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="608" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">getBridgeStatus()</text>
+<rect x="902" y="593" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="608" font-size="11" font-weight="600" fill="#0f766e">SerialBridge</text>
+<path d="M30 630 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 630 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 630 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="619" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="634" font-size="11.5" fill="#134e4a">F22. Command the dispenser to release a dose</text>
+<rect x="566" y="619" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="634" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">DISPENSE / RELEASE (serial)</text>
+<rect x="902" y="619" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="634" font-size="11" font-weight="600" fill="#0f766e">SerialBridge  +  DispenserController</text>
+<path d="M30 656 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 656 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 656 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="645" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="660" font-size="11.5" fill="#134e4a">F23. Drive one medication channel to dispense</text>
+<rect x="566" y="645" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="660" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">dispenseChannel()</text>
+<rect x="902" y="645" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="660" font-size="11" font-weight="600" fill="#0f766e">DispenserController  +  Medication</text>
+<path d="M30 682 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 682 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 682 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="671" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="686" font-size="11.5" fill="#134e4a">F24. Confirm completion with light and buzz cues</text>
+<rect x="566" y="671" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="686" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">updateStatusLights(), playDoneBuzzes()</text>
+<rect x="902" y="671" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="686" font-size="11" font-weight="600" fill="#0f766e">DispenserController</text>
+<path d="M30 708 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 708 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 708 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="697" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="712" font-size="11.5" fill="#134e4a">F25. Simulate the dose when the bridge is offline</text>
+<rect x="566" y="697" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="712" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">ALLOW_OFFLINE_SIMULATION branch</text>
+<rect x="902" y="697" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="712" font-size="11" font-weight="600" fill="#0f766e">DispenseSimulator</text>
+<path d="M30 734 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 734 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 734 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="723" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="738" font-size="11.5" fill="#134e4a">F26. Record the dispense result in the history</text>
+<rect x="566" y="723" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="738" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">log_dispense.php</text>
+<rect x="902" y="723" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="738" font-size="11" font-weight="600" fill="#0f766e">DispenseHistory</text>
+<path d="M30 760 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 760 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 760 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="749" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="764" font-size="11.5" fill="#134e4a">F27. Record the dispense result as a stock movement</text>
+<rect x="566" y="749" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="764" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">recordStockMovement()</text>
+<rect x="902" y="749" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="764" font-size="11" font-weight="600" fill="#0f766e">StockMovement</text>
+<rect x="8" y="586" width="1164" height="194" rx="10" fill="#0c7a73" opacity="0.045"/>
+<path d="M30 800 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 800 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 800 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="789" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="804" font-size="11.5" fill="#134e4a">F28. Render the receipt for a completed sale</text>
+<rect x="566" y="789" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="804" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">receipt.php</text>
+<rect x="902" y="789" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="804" font-size="11" font-weight="600" fill="#0f766e">Sale  +  SaleItem</text>
+<path d="M30 826 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 826 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 826 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="815" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="830" font-size="11.5" fill="#134e4a">F29. Print the receipt for the customer</text>
+<rect x="566" y="815" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="830" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">@media print rules</text>
+<rect x="902" y="815" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="830" font-size="11" font-weight="600" fill="#0f766e">Sale  +  SaleItem</text>
+<rect x="8" y="782" width="1164" height="64" rx="10" fill="#0c7a73" opacity="0.045"/>
+<path d="M30 866 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 866 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 866 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="855" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="870" font-size="11.5" fill="#134e4a">F30. Summarise daily sales for a chosen day</text>
+<rect x="566" y="855" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="870" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">report_csv(), chart()</text>
+<rect x="902" y="855" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="870" font-size="11" font-weight="600" fill="#0f766e">Sale</text>
+<path d="M30 892 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 892 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 892 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="881" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="896" font-size="11.5" fill="#134e4a">F31. Summarise monthly sales for a chosen month</text>
+<rect x="566" y="881" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="896" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">report_csv(), chart()</text>
+<rect x="902" y="881" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="896" font-size="11" font-weight="600" fill="#0f766e">Sale</text>
+<path d="M30 918 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 918 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 918 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="907" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="922" font-size="11.5" fill="#134e4a">F32. Produce the sales ledger for a date range</text>
+<rect x="566" y="907" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="922" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">report_csv()</text>
+<rect x="902" y="907" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="922" font-size="11" font-weight="600" fill="#0f766e">Sale  +  SaleItem</text>
+<path d="M30 944 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 944 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 944 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="933" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="948" font-size="11.5" fill="#134e4a">F33. Report on inventory and low-stock levels</text>
+<rect x="566" y="933" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="948" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">chart(), showEmpty()</text>
+<rect x="902" y="933" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="948" font-size="11" font-weight="600" fill="#0f766e">Medication  +  ChartSeries</text>
+<path d="M30 970 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 970 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 970 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="959" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="974" font-size="11.5" fill="#134e4a">F34. Export a report to CSV</text>
+<rect x="566" y="959" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="974" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">report_csv()</text>
+<rect x="902" y="959" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="974" font-size="11" font-weight="600" fill="#0f766e">ReportExport</text>
+<rect x="8" y="848" width="1164" height="142" rx="10" fill="#0c7a73" opacity="0.045"/>
+<path d="M30 1010 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 1010 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 1010 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="999" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="1014" font-size="11.5" fill="#134e4a">F35. Record the user activity for every action</text>
+<rect x="566" y="999" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="1014" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">log_activity(), audit_log()</text>
+<rect x="902" y="999" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="1014" font-size="11" font-weight="600" fill="#0f766e">AuditLog  +  User</text>
+<path d="M30 1036 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 1036 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 1036 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="1025" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="1040" font-size="11.5" fill="#134e4a">F36. Label an activity entry for the log view</text>
+<rect x="566" y="1025" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="1040" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">audit_label_for_page(), audit_action_label()</text>
+<rect x="902" y="1025" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="1040" font-size="11" font-weight="600" fill="#0f766e">AuditLog</text>
+<path d="M30 1062 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 1062 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 1062 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="1051" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="1066" font-size="11.5" fill="#134e4a">F37. Filter the activity log by user and action</text>
+<rect x="566" y="1051" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="1066" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">audit-log.php</text>
+<rect x="902" y="1051" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="1066" font-size="11" font-weight="600" fill="#0f766e">AuditLog</text>
+<path d="M30 1088 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 1088 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 1088 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="1077" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="1092" font-size="11.5" fill="#134e4a">F38. File and track a support ticket</text>
+<rect x="566" y="1077" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="1092" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">support-tickets.php</text>
+<rect x="902" y="1077" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="1092" font-size="11" font-weight="600" fill="#0f766e">SupportTicket  +  User</text>
+<rect x="8" y="992" width="1164" height="116" rx="10" fill="#0c7a73" opacity="0.045"/>
+<path d="M30 1128 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 1128 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 1128 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="1117" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="1132" font-size="11.5" fill="#134e4a">F39. Create, update or deactivate a user account</text>
+<rect x="566" y="1117" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="1132" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">fillForm()</text>
+<rect x="902" y="1117" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="1132" font-size="11" font-weight="600" fill="#0f766e">User</text>
+<path d="M30 1154 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 1154 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 1154 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="1143" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="1158" font-size="11.5" fill="#134e4a">F40. Record a purchase and raise stock on hand</text>
+<rect x="566" y="1143" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="1158" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">admin.php purchases</text>
+<rect x="902" y="1143" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="1158" font-size="11" font-weight="600" fill="#0f766e">Purchase  +  Medication</text>
+<path d="M30 1180 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 1180 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 1180 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="1169" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="1184" font-size="11.5" fill="#134e4a">F41. Back up all database tables</text>
+<rect x="566" y="1169" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="1184" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">db_backup.php</text>
+<rect x="902" y="1169" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="1184" font-size="11" font-weight="600" fill="#0f766e">DatabaseAdmin</text>
+<path d="M30 1206 H38" stroke="#0c7a73" stroke-width="2" opacity="0.5"/>
+<path d="M542 1206 H560" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<path d="M542 1206 H896" stroke="#5b7371" stroke-width="1.2" marker-end="url(#arw)"/>
+<rect x="236" y="1195" width="306" height="22" rx="6" fill="#ffffff" stroke="#0c7a73" stroke-width="1"/>
+<text x="244" y="1210" font-size="11.5" fill="#134e4a">F42. Show the dashboard statistics for the user</text>
+<rect x="566" y="1195" width="306" height="22" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
+<text x="574" y="1210" font-size="10" fill="#5b7371" font-family="Consolas, Menlo, monospace">home.php</text>
+<rect x="902" y="1195" width="250" height="22" rx="6" fill="#0c7a73" opacity="0.10" stroke="#0c7a73" stroke-width="0.8"/>
+<text x="910" y="1210" font-size="11" font-weight="600" fill="#0f766e">User  +  Sale  +  Medication</text>
+<rect x="8" y="1110" width="1164" height="116" rx="10" fill="#0c7a73" opacity="0.045"/>
+<rect x="20" y="107" width="196" height="194" rx="9" fill="#0f766e"/>
+<text x="32" y="105" font-size="12" font-weight="700" fill="#ffffff">M1  Access Control</text>
+<text x="32" y="121" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">auth.php, index.php,</text>
+<text x="32" y="132" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">change_password.php,</text>
+<text x="32" y="143" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">reset_password.php,</text>
+<text x="32" y="154" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">forgot_password.php</text>
+<rect x="20" y="264" width="196" height="116" rx="9" fill="#0f766e"/>
+<text x="32" y="262" font-size="12" font-weight="700" fill="#ffffff">M2  Medication Catalog</text>
+<text x="32" y="278" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">shop.php,</text>
+<text x="32" y="289" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">stock-status.php,</text>
+<text x="32" y="300" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">includes/stock.php</text>
+<rect x="20" y="382" width="196" height="116" rx="9" fill="#0f766e"/>
+<text x="32" y="380" font-size="12" font-weight="700" fill="#ffffff">M3  Dispense Cart</text>
+<text x="32" y="396" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace"></text>
+<text x="32" y="407" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">includes/dispense-cart.php,</text>
+<text x="32" y="418" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">ui.js</text>
+<rect x="20" y="513" width="196" height="142" rx="9" fill="#0f766e"/>
+<text x="32" y="511" font-size="12" font-weight="700" fill="#ffffff">M4  Checkout &amp; Sales</text>
+<text x="32" y="527" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">checkout.php</text>
+<rect x="20" y="683" width="196" height="194" rx="9" fill="#0f766e"/>
+<text x="32" y="681" font-size="12" font-weight="700" fill="#ffffff">M5  Hardware Dispensing</text>
+<text x="32" y="697" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">arduino-bridge/server.js,</text>
+<text x="32" y="708" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">AMDPMS_Dispenser.ino,</text>
+<text x="32" y="719" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">includes/dispensing.php,</text>
+<text x="32" y="730" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">log_dispense.php</text>
+<rect x="20" y="814" width="196" height="64" rx="9" fill="#0f766e"/>
+<text x="32" y="812" font-size="12" font-weight="700" fill="#ffffff">M6  Receipt</text>
+<text x="32" y="828" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">receipt.php</text>
+<rect x="20" y="919" width="196" height="142" rx="9" fill="#0f766e"/>
+<text x="32" y="917" font-size="12" font-weight="700" fill="#ffffff">M7  Reporting</text>
+<text x="32" y="933" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">reports.php</text>
+<rect x="20" y="1050" width="196" height="116" rx="9" fill="#0f766e"/>
+<text x="32" y="1048" font-size="12" font-weight="700" fill="#ffffff">M8  Auditing &amp; Support</text>
+<text x="32" y="1064" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">audit-log.php,</text>
+<text x="32" y="1075" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">support-tickets.php,</text>
+<text x="32" y="1086" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">contact.php</text>
+<rect x="20" y="1168" width="196" height="116" rx="9" fill="#0f766e"/>
+<text x="32" y="1166" font-size="12" font-weight="700" fill="#ffffff">M9  Administration</text>
+<text x="32" y="1182" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">admin.php, db_backup.php,</text>
+<text x="32" y="1193" font-size="8.5" fill="#ccfbf1" font-family="Consolas, Menlo, monospace">home.php</text>
+</svg></div>
+<div class="legend">
+  <span><i style="background:#0f766e;border-color:#0f766e"></i>Seam</span>
+  <span><i style="background:#fff;border-color:#0c7a73"></i>Feature</span>
+  <span><i style="background:#f8fafc;border-color:#cbd5e1"></i>Process</span>
+  <span><i style="background:#ccfbf1;border-color:#0c7a73"></i>Class / owning entity</span>
+</div>
+
+<h2><span class="n">3</span>Feature-to-Process-Table</h2>
+<p class="lead">The same decomposition in tabular form, grouped by seam and numbered in FDB order.</p>
+<div class="card">
+  <table>
+    <thead><tr><th>ID</th><th>Feature</th><th>Process</th><th>Class</th><th>Seam</th></tr></thead>
+    <tbody><tr><td class="fid">F1</td><td>Authenticate the user at sign-in</td><td><code>requireLogin(), setUserSession()</code></td><td class="cls">User + Session</td><td class="mod">M1 Access Control</td></tr><tr><td class="fid">F2</td><td>Enforce the account lockout before sign-in</td><td><code>isAccountLocked(), getLockoutRemainingSeconds()</code></td><td class="cls">User</td><td class="mod">M1 Access Control</td></tr><tr><td class="fid">F3</td><td>Enforce the password policy for an account</td><td><code>validatePasswordStrength()</code></td><td class="cls">User</td><td class="mod">M1 Access Control</td></tr><tr><td class="fid">F4</td><td>Authorise the request against the role guard</td><td><code>requireAdmin(), requireStaff(), isAdmin()</code></td><td class="cls">User + AccessGuard</td><td class="mod">M1 Access Control</td></tr><tr><td class="fid">F5</td><td>Guard the request against CSRF forgery</td><td><code>getCsrfToken(), verifyCsrfToken()</code></td><td class="cls">Session + CsrfToken</td><td class="mod">M1 Access Control</td></tr><tr><td class="fid">F6</td><td>Recover a lost password by email token</td><td><code>reset_password.php, forgot_password.php</code></td><td class="cls">User + PasswordResetToken</td><td class="mod">M1 Access Control</td></tr><tr><td class="fid">F7</td><td>Terminate the session at sign-out</td><td><code>includes/logout.php</code></td><td class="cls">Session</td><td class="mod">M1 Access Control</td></tr><tr><td class="fid">F8</td><td>Display the medication catalog with stock levels</td><td><code>badgeFor(), barFor()</code></td><td class="cls">Medication</td><td class="mod">M2 Medication Catalog</td></tr><tr><td class="fid">F9</td><td>Flag a medication that is low on stock</td><td><code>barFor(), badgeFor()</code></td><td class="cls">Medication</td><td class="mod">M2 Medication Catalog</td></tr><tr><td class="fid">F10</td><td>Record a stock adjustment for a medication</td><td><code>recordStockMovement()</code></td><td class="cls">StockMovement + Medication</td><td class="mod">M2 Medication Catalog</td></tr><tr><td class="fid">F11</td><td>Synchronise channel stock to the dispenser</td><td><code>syncStockToArduino()</code></td><td class="cls">Medication + SerialBridge</td><td class="mod">M2 Medication Catalog</td></tr><tr><td class="fid">F12</td><td>Restore the saved cart for the session</td><td><code>restoreCart(), saveCart()</code></td><td class="cls">DispenseCart + Session</td><td class="mod">M3 Dispense Cart</td></tr><tr><td class="fid">F13</td><td>Add a medication line to the cart</td><td><code>ui.js addToCart</code></td><td class="cls">DispenseCart + Medication</td><td class="mod">M3 Dispense Cart</td></tr><tr><td class="fid">F14</td><td>Recalculate the cart subtotal, count and total</td><td><code>buildCartSummary(), peso()</code></td><td class="cls">DispenseCart</td><td class="mod">M3 Dispense Cart</td></tr><tr><td class="fid">F15</td><td>Remove a cart line and clear the whole cart</td><td><code>clearStoredCart()</code></td><td class="cls">DispenseCart</td><td class="mod">M3 Dispense Cart</td></tr><tr><td class="fid">F16</td><td>Reprice the cart at checkout to stop tampering</td><td><code>price_order()</code></td><td class="cls">DispenseCart + Sale</td><td class="mod">M4 Checkout &amp; Sales</td></tr><tr><td class="fid">F17</td><td>Reject a stale or mismatched cart at checkout</td><td><code>order_is_stale()</code></td><td class="cls">Sale</td><td class="mod">M4 Checkout &amp; Sales</td></tr><tr><td class="fid">F18</td><td>Validate the selected payment method</td><td><code>selectedMethod()</code></td><td class="cls">Payment</td><td class="mod">M4 Checkout &amp; Sales</td></tr><tr><td class="fid">F19</td><td>Compute the tendered amount and the change due</td><td><code>order_totals(), updateCash()</code></td><td class="cls">Sale + Payment</td><td class="mod">M4 Checkout &amp; Sales</td></tr><tr><td class="fid">F20</td><td>Assign a unique batch reference to the order</td><td><code>newBatchRef()</code></td><td class="cls">Sale + DispenseBatch</td><td class="mod">M4 Checkout &amp; Sales</td></tr><tr><td class="fid">F21</td><td>Poll the bridge for dispenser availability</td><td><code>getBridgeStatus()</code></td><td class="cls">SerialBridge</td><td class="mod">M5 Hardware Dispensing</td></tr><tr><td class="fid">F22</td><td>Command the dispenser to release a dose</td><td><code>DISPENSE / RELEASE (serial)</code></td><td class="cls">SerialBridge + DispenserController</td><td class="mod">M5 Hardware Dispensing</td></tr><tr><td class="fid">F23</td><td>Drive one medication channel to dispense</td><td><code>dispenseChannel()</code></td><td class="cls">DispenserController + Medication</td><td class="mod">M5 Hardware Dispensing</td></tr><tr><td class="fid">F24</td><td>Confirm completion with light and buzz cues</td><td><code>updateStatusLights(), playDoneBuzzes()</code></td><td class="cls">DispenserController</td><td class="mod">M5 Hardware Dispensing</td></tr><tr><td class="fid">F25</td><td>Simulate the dose when the bridge is offline</td><td><code>ALLOW_OFFLINE_SIMULATION branch</code></td><td class="cls">DispenseSimulator</td><td class="mod">M5 Hardware Dispensing</td></tr><tr><td class="fid">F26</td><td>Record the dispense result in the history</td><td><code>log_dispense.php</code></td><td class="cls">DispenseHistory</td><td class="mod">M5 Hardware Dispensing</td></tr><tr><td class="fid">F27</td><td>Record the dispense result as a stock movement</td><td><code>recordStockMovement()</code></td><td class="cls">StockMovement</td><td class="mod">M5 Hardware Dispensing</td></tr><tr><td class="fid">F28</td><td>Render the receipt for a completed sale</td><td><code>receipt.php</code></td><td class="cls">Sale + SaleItem</td><td class="mod">M6 Receipt</td></tr><tr><td class="fid">F29</td><td>Print the receipt for the customer</td><td><code>@media print rules</code></td><td class="cls">Sale + SaleItem</td><td class="mod">M6 Receipt</td></tr><tr><td class="fid">F30</td><td>Summarise daily sales for a chosen day</td><td><code>report_csv(), chart()</code></td><td class="cls">Sale</td><td class="mod">M7 Reporting</td></tr><tr><td class="fid">F31</td><td>Summarise monthly sales for a chosen month</td><td><code>report_csv(), chart()</code></td><td class="cls">Sale</td><td class="mod">M7 Reporting</td></tr><tr><td class="fid">F32</td><td>Produce the sales ledger for a date range</td><td><code>report_csv()</code></td><td class="cls">Sale + SaleItem</td><td class="mod">M7 Reporting</td></tr><tr><td class="fid">F33</td><td>Report on inventory and low-stock levels</td><td><code>chart(), showEmpty()</code></td><td class="cls">Medication + ChartSeries</td><td class="mod">M7 Reporting</td></tr><tr><td class="fid">F34</td><td>Export a report to CSV</td><td><code>report_csv()</code></td><td class="cls">ReportExport</td><td class="mod">M7 Reporting</td></tr><tr><td class="fid">F35</td><td>Record the user activity for every action</td><td><code>log_activity(), audit_log()</code></td><td class="cls">AuditLog + User</td><td class="mod">M8 Auditing &amp; Support</td></tr><tr><td class="fid">F36</td><td>Label an activity entry for the log view</td><td><code>audit_label_for_page(), audit_action_label()</code></td><td class="cls">AuditLog</td><td class="mod">M8 Auditing &amp; Support</td></tr><tr><td class="fid">F37</td><td>Filter the activity log by user and action</td><td><code>audit-log.php</code></td><td class="cls">AuditLog</td><td class="mod">M8 Auditing &amp; Support</td></tr><tr><td class="fid">F38</td><td>File and track a support ticket</td><td><code>support-tickets.php</code></td><td class="cls">SupportTicket + User</td><td class="mod">M8 Auditing &amp; Support</td></tr><tr><td class="fid">F39</td><td>Create, update or deactivate a user account</td><td><code>fillForm()</code></td><td class="cls">User</td><td class="mod">M9 Administration</td></tr><tr><td class="fid">F40</td><td>Record a purchase and raise stock on hand</td><td><code>admin.php purchases</code></td><td class="cls">Purchase + Medication</td><td class="mod">M9 Administration</td></tr><tr><td class="fid">F41</td><td>Back up all database tables</td><td><code>db_backup.php</code></td><td class="cls">DatabaseAdmin</td><td class="mod">M9 Administration</td></tr><tr><td class="fid">F42</td><td>Show the dashboard statistics for the user</td><td><code>home.php</code></td><td class="cls">User + Sale + Medication</td><td class="mod">M9 Administration</td></tr></tbody>
+  </table>
+</div>
+
+<h2><span class="n">4</span>Class Model &amp; Feature Ownership</h2>
+<p class="lead">This codebase is procedural PHP, so an FDD &ldquo;class&rdquo; is the logical data entity or owning component that holds a feature's state. Each class names the seams it belongs to and the features that own it.</p>
+<div class="grid"><div class="classcard"><div class="ch">User</div><div class="cs">&rarr; users</div><div class="ca"><span>attributes</span>fname, lname, email, pass, role, failed_attempts, last_login</div><div class="co"><span>owns</span>F1 F2 F3 F4 F37 F41 F44</div></div><div class="classcard"><div class="ch">Session</div><div class="cs">&rarr; PHP session</div><div class="ca"><span>attributes</span>role, email, last_seen, cart</div><div class="co"><span>owns</span>F1 F5 F7 F13</div></div><div class="classcard"><div class="ch">AccessGuard</div><div class="cs">&rarr; auth.php</div><div class="ca"><span>attributes</span>requireAdmin, requireStaff, isAdmin</div><div class="co"><span>owns</span>F4</div></div><div class="classcard"><div class="ch">CsrfToken</div><div class="cs">&rarr; auth.php</div><div class="ca"><span>attributes</span>token, issued_at</div><div class="co"><span>owns</span>F5</div></div><div class="classcard"><div class="ch">PasswordResetToken</div><div class="cs">&rarr; password_reset_tokens</div><div class="ca"><span>attributes</span>email, token, expires_at, used_at</div><div class="co"><span>owns</span>F6</div></div><div class="classcard"><div class="ch">Medication</div><div class="cs">&rarr; medications</div><div class="ca"><span>attributes</span>channel, name, sku, price, stock, reorder_level</div><div class="co"><span>owns</span>F8 F9 F10 F14 F25 F42 F44</div></div><div class="classcard"><div class="ch">StockMovement</div><div class="cs">&rarr; stock_movements</div><div class="ca"><span>attributes</span>medication_id, movement_type, qty, stock_after, reason</div><div class="co"><span>owns</span>F11 F29</div></div><div class="classcard"><div class="ch">Purchase</div><div class="cs">&rarr; purchases</div><div class="ca"><span>attributes</span>sku, qty, supplier, unit_cost</div><div class="co"><span>owns</span>F42</div></div><div class="classcard"><div class="ch">DispenseCart</div><div class="cs">&rarr; session cart</div><div class="ca"><span>attributes</span>items[], subtotal, count</div><div class="co"><span>owns</span>F13 F14 F15 F16 F17</div></div><div class="classcard"><div class="ch">Sale</div><div class="cs">&rarr; sales</div><div class="ca"><span>attributes</span>invoice_no, total_qty, total_amount, payment_method, status, batch_ref</div><div class="co"><span>owns</span>F17 F19 F21 F30 F32 F33 F34 F44</div></div><div class="classcard"><div class="ch">SaleItem</div><div class="cs">&rarr; sale_items</div><div class="ca"><span>attributes</span>sale_id, sku, price, qty, subtotal</div><div class="co"><span>owns</span>F30 F34</div></div><div class="classcard"><div class="ch">Payment</div><div class="cs">&rarr; sales (embedded)</div><div class="ca"><span>attributes</span>method, cash_received, change_due, reference_no</div><div class="co"><span>owns</span>F19 F20</div></div><div class="classcard"><div class="ch">DispenseBatch</div><div class="cs">&rarr; sales.batch_ref</div><div class="ca"><span>attributes</span>batch_ref</div><div class="co"><span>owns</span>F21 F22</div></div><div class="classcard"><div class="ch">DispenseHistory</div><div class="cs">&rarr; dispense_history</div><div class="ca"><span>attributes</span>batch_ref, sku, qty, channel, sale_id, dispensed_at</div><div class="co"><span>owns</span>F28</div></div><div class="classcard"><div class="ch">SerialBridge</div><div class="cs">&rarr; arduino-bridge/server.js</div><div class="ca"><span>attributes</span>port, status, DISPENSE/RELEASE/STOCK/SYNC verbs</div><div class="co"><span>owns</span>F12 F23 F24</div></div><div class="classcard"><div class="ch">DispenserController</div><div class="cs">&rarr; AMDPMS_Dispenser.ino</div><div class="ca"><span>attributes</span>handleCommand, dispenseChannel, setStockFromString</div><div class="co"><span>owns</span>F24 F25 F26</div></div><div class="classcard"><div class="ch">DispenseSimulator</div><div class="cs">&rarr; includes/dispensing.php</div><div class="ca"><span>attributes</span>ALLOW_OFFLINE_SIMULATION fallback</div><div class="co"><span>owns</span>F27</div></div><div class="classcard"><div class="ch">AuditLog</div><div class="cs">&rarr; audit_log</div><div class="ca"><span>attributes</span>user_email, action, uri, ip, created_at</div><div class="co"><span>owns</span>F37 F38 F39</div></div><div class="classcard"><div class="ch">SupportTicket</div><div class="cs">&rarr; support_tickets</div><div class="ca"><span>attributes</span>user_email, subject, message, status</div><div class="co"><span>owns</span>F40</div></div><div class="classcard"><div class="ch">ChartSeries</div><div class="cs">&rarr; reports.php</div><div class="ca"><span>attributes</span>daily/monthly/ledger series</div><div class="co"><span>owns</span>F35</div></div><div class="classcard"><div class="ch">ReportExport</div><div class="cs">&rarr; reports.php</div><div class="ca"><span>attributes</span>CSV stream headers</div><div class="co"><span>owns</span>F36</div></div><div class="classcard"><div class="ch">DatabaseAdmin</div><div class="cs">&rarr; db_backup.php</div><div class="ca"><span>attributes</span>table set, dump</div><div class="co"><span>owns</span>F43</div></div></div>
+
+<h2><span class="n">5</span>Key Relationships</h2>
+<div class="card">
+  <ul class="rel">
+    <li><b>Sale &rarr; SaleItem</b> &mdash; one sale has many line items; a line item belongs to exactly one sale.</li>
+    <li><b>Sale &rarr; DispenseBatch</b> &mdash; every sale carries one <code>batch_ref</code>, generated by <code>newBatchRef()</code>, which groups the physical doses for that order.</li>
+    <li><b>DispenseBatch &rarr; DispenseHistory</b> &mdash; one batch produces many history rows, one per channel actually released.</li>
+    <li><b>Medication &rarr; StockMovement</b> &mdash; every stock change (restock, dispense, adjustment) is an immutable movement row, so on-hand stock is auditable.</li>
+    <li><b>SerialBridge &harr; DispenserController</b> &mdash; the Node bridge speaks the serial protocol (<code>DISPENSE</code>, <code>RELEASE</code>, <code>STOCK</code>, <code>SYNC</code>, <code>STATUS</code>, <code>BUZZ</code>, <code>READY</code>); the firmware dispenses per channel and answers with lights and buzzes.</li>
+    <li><b>DispenseSimulator &rarr; SerialBridge</b> &mdash; when the bridge is unreachable, <code>ALLOW_OFFLINE_SIMULATION</code> substitutes the simulated result so a sale still completes.</li>
+    <li><b>User &rarr; AuditLog</b> &mdash; each guarded action writes an activity row attributed to the signed-in user.</li>
+  </ul>
+</div>
+
+</div>
+</body>
+</html>

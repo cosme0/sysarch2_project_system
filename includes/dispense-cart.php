@@ -15,17 +15,33 @@
         </div>
         <div class="cart-items" id="cartItems"></div>
         <div class="cart-panel-footer">
-            <span class="cart-total" id="cartTotal">0 items</span>
-            <button type="button" class="btn-dispense" id="cartDispenseBtn" disabled>Dispense Selected</button>
+            <div class="cart-panel-totals">
+                <span class="cart-total" id="cartTotal">0 items</span>
+                <span class="cart-amount" id="cartAmount">₱0.00</span>
+            </div>
+            <button type="button" class="btn-dispense" id="cartDispenseBtn" disabled>Proceed to checkout</button>
         </div>
     </div>
 </div>
 
 <div class="cart-toast" id="cartToast"></div>
 
+<div class="modal-overlay" id="dispenseConfirmOverlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Confirm dispense">
+            <h3>Confirm order</h3>
+            <div id="dispenseConfirmText" class="cart-confirm-list"></div>
+            <p class="dispense-confirm-warn">Medication error check — confirm the prescription matches the items, doses, and quantities below before dispensing.</p>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="dispenseConfirmCancel">Cancel</button>
+                <button type="button" class="btn-primary btn-danger-solid" id="dispenseConfirmOk">Continue to payment</button>
+            </div>
+    </div>
+</div>
+
 <script>
 (function () {
-    const cart = {}; // sku -> { name, price, qty, stock }
+    const STORAGE_KEY = 'amdpms-cart';
+    const cart = {}; // sku -> { name, price, amount, qty, stock }
 
     const cartFab = document.getElementById('cartFab');
     const cartPanel = document.getElementById('cartPanel');
@@ -33,10 +49,40 @@
     const cartBadge = document.getElementById('cartBadge');
     const cartItems = document.getElementById('cartItems');
     const cartTotal = document.getElementById('cartTotal');
+    const cartAmount = document.getElementById('cartAmount');
     const cartDispenseBtn = document.getElementById('cartDispenseBtn');
     const cartToast = document.getElementById('cartToast');
 
     const addButtons = document.querySelectorAll('.btn-add');
+
+    // The cart survives a full page navigation (shop -> checkout -> back)
+    // because it lives in sessionStorage rather than in memory only.
+    function saveCart() {
+        try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(cart)); } catch (e) { /* private mode */ }
+    }
+
+    function restoreCart() {
+        try {
+            const raw = sessionStorage.getItem(STORAGE_KEY);
+            if (!raw) return;
+            const saved = JSON.parse(raw);
+            Object.keys(saved || {}).forEach(function (sku) {
+                const item = saved[sku];
+                if (item && item.qty > 0) { cart[sku] = item; }
+            });
+        } catch (e) { /* ignore malformed state */ }
+    }
+
+    function clearStoredCart() {
+        try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+    }
+
+    // A paid order is finished with, so the cart is emptied.
+    window.AMDPMS_CART_CLEAR = clearStoredCart;
+
+    function peso(n) {
+        return '₱' + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
 
     function showToast(msg, isError) {
         cartToast.textContent = msg;
@@ -49,12 +95,14 @@
 
     function renderCart() {
         let count = 0;
+        let amount = 0;
         let html = '';
         const skus = Object.keys(cart);
 
         skus.forEach(function (sku) {
             const item = cart[sku];
             count += item.qty;
+            amount += (Number(item.amount) || 0) * item.qty;
             html += '<div class="cart-item">'
                 + '<div class="cart-item-info">'
                 + '<strong>' + item.name + '</strong>'
@@ -65,7 +113,7 @@
                 + '<input type="number" class="cart-qty-input" data-sku="' + sku + '" value="' + item.qty + '" min="1" max="' + item.stock + '" inputmode="numeric" aria-label="Quantity for ' + sku + '">'
                 + '<button type="button" class="cart-step cart-step-plus" data-sku="' + sku + '" aria-label="Increase quantity">+</button>'
                 + '</div>'
-                + '<button type="button" class="cart-item-remove" data-sku="' + sku + '">Remove</button>'
+                + '<button type="button" class="cart-item-remove" data-sku="' + sku + '" aria-label="Remove ' + item.name + ' from cart">Remove</button>'
                 + '</div>';
         });
 
@@ -77,6 +125,7 @@
         cartBadge.textContent = count;
         cartBadge.style.display = count > 0 ? 'flex' : 'none';
         cartTotal.textContent = count + (count === 1 ? ' item' : ' items');
+        if (cartAmount) cartAmount.textContent = peso(amount);
         cartItems.innerHTML = html;
 
         cartDispenseBtn.disabled = count === 0;
@@ -85,6 +134,7 @@
             btn.addEventListener('click', function () {
                 delete cart[btn.getAttribute('data-sku')];
                 renderCart();
+                saveCart();
                 if (Object.keys(cart).length === 0) showToast('Cart cleared.');
             });
         });
@@ -108,6 +158,7 @@
                     }
                 }
                 renderCart();
+                saveCart();
             });
         });
 
@@ -126,6 +177,7 @@
                 }
                 cart[sku].qty = val;
                 renderCart();
+                saveCart();
             });
             // Prevent typing non-numeric characters in the field.
             input.addEventListener('keydown', function (e) {
@@ -141,14 +193,16 @@
             const sku = btn.getAttribute('data-sku');
             const name = btn.getAttribute('data-name');
             const price = btn.getAttribute('data-price');
+            const amount = parseFloat(btn.getAttribute('data-amount')) || 0;
             const stock = parseInt(btn.getAttribute('data-stock'), 10);
 
             if (!cart[sku]) {
-                cart[sku] = { name: name, price: price, qty: 0, stock: stock };
+                cart[sku] = { name: name, price: price, amount: amount, qty: 0, stock: stock };
             }
             if (cart[sku].qty < cart[sku].stock) {
                 cart[sku].qty++;
                 renderCart();
+                saveCart();
                 cartPanel.classList.add('open'); // Auto-open the cart when an item is added
                 showToast(name + ' added to cart.');
             } else {
@@ -156,6 +210,29 @@
             }
         });
     });
+
+    // Lets live stock updates (from shop.php polling) re-clamp quantities
+    // already sitting in the cart.
+    window.AMDPMS_CART = {
+        syncStock: function (sku, rawStock) {
+            if (!cart[sku]) return;
+            var newStock = Math.max(0, parseInt(rawStock, 10) || 0);
+            var changed = newStock !== cart[sku].stock;
+            cart[sku].stock = newStock;
+
+            if (cart[sku].qty > newStock) {
+                cart[sku].qty = newStock;
+            }
+
+            if (cart[sku].qty <= 0) {
+                delete cart[sku];
+                showToast('Item out of stock; removed from cart.', true);
+                renderCart();
+            } else if (changed) {
+                renderCart();
+            }
+        }
+    };
 
     cartFab.addEventListener('click', function () {
         cartPanel.classList.toggle('open');
@@ -165,55 +242,99 @@
         cartPanel.classList.remove('open');
     });
 
+    function buildCartSummary() {
+        var skus = Object.keys(cart);
+        if (skus.length === 0) return '';
+        var total = 0;
+        var rows = skus.map(function (sku) {
+            var it = cart[sku];
+            total += (Number(it.amount) || 0) * it.qty;
+            return '<div class="cart-confirm-item"><span>' + it.name + '</span>'
+                + '<span>&times; ' + it.qty + ' · ' + peso((Number(it.amount) || 0) * it.qty) + '</span></div>';
+        });
+        rows.push('<div class="cart-confirm-total"><span>Total due</span><strong>' + peso(total) + '</strong></div>');
+        return rows.join('');
+    }
+
+    /**
+     * Hands the order to checkout.php, which re-prices it from the database and
+     * takes the payment before anything is released by the dispenser.
+     */
+    function goToCheckout() {
+        if (Object.keys(cart).length === 0) return;
+
+        const tokenEl = document.querySelector('meta[name="csrf-token"]');
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = 'checkout.php';
+        form.style.display = 'none';
+
+        const push = function (name, value) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+        };
+
+        push('action', 'start');
+        push('_csrf', tokenEl ? tokenEl.getAttribute('content') : '');
+
+        // price_order() in checkout.php iterates $_POST['items'] and reads
+        // $item['sku'] / $item['qty'] directly, so the list must be flat:
+        // items[0][sku], items[1][sku], ... An extra [0] level here would
+        // nest each item one level too deep and the order would come through
+        // as empty.
+        Object.keys(cart).forEach(function (sku, i) {
+            push('items[' + i + '][sku]', sku);
+            push('items[' + i + '][qty]', cart[sku].qty);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+
     cartDispenseBtn.addEventListener('click', function () {
         if (Object.keys(cart).length === 0) return;
 
-        cartDispenseBtn.disabled = true;
-        cartDispenseBtn.textContent = 'Dispensing…';
+        var confirmText = document.getElementById('dispenseConfirmText');
+        if (confirmText) confirmText.innerHTML = buildCartSummary();
 
-        const payload = {
-            items: Object.keys(cart).map(function (sku) {
-                return { sku: sku, qty: cart[sku].qty };
-            })
-        };
-
-        fetch('log_dispense.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        }).then(function (res) {
-            return res.json().catch(function () { return { ok: false, message: 'Server error.' }; });
-        }).then(function (data) {
-            if (data.ok) {
-                showToast(data.message || 'Dispensed successfully.');
-                // Remove only the SKUs that were fully dispensed. This keeps the
-                // cart intact for items that were partially rejected or skipped,
-                // so the user is never re-dispensed units they already got.
-                var fullyDispensed = (data.items || {});
-                Object.keys(cart).forEach(function (sku) {
-                    if (!fullyDispensed[sku] || fullyDispensed[sku].ok) {
-                        delete cart[sku];
-                    }
-                });
-                renderCart();
-                // Redirect to the on-screen receipt view showing the most recent N dispensed items.
-                // Use a short delay so the toast is visible briefly before navigation.
-                setTimeout(function () {
-                    window.location = 'receipt.php?recent=' + encodeURIComponent(data.logged || 0);
-                }, 600);
-            } else {
-                showToast(data.message || 'Dispense failed.', true);
-                cartDispenseBtn.disabled = Object.keys(cart).length === 0;
-            }
-            cartDispenseBtn.textContent = 'Dispense Selected';
-            cartPanel.classList.remove('open');
-        }).catch(function () {
-            showToast('Could not reach the server.', true);
-            cartDispenseBtn.textContent = 'Dispense Selected';
-            cartDispenseBtn.disabled = false;
-        });
+        var overlay = document.getElementById('dispenseConfirmOverlay');
+        if (overlay) {
+            overlay.classList.add('open');
+            overlay.setAttribute('aria-hidden', 'false');
+            var okBtn = document.getElementById('dispenseConfirmOk');
+            if (okBtn) okBtn.focus();
+        } else {
+            goToCheckout(); // no overlay available; go straight to payment
+        }
     });
 
+    (function initDispenseConfirm() {
+        var overlay = document.getElementById('dispenseConfirmOverlay');
+        if (!overlay) return;
+        var cancelBtn = document.getElementById('dispenseConfirmCancel');
+        var okBtn = document.getElementById('dispenseConfirmOk');
+
+        function closeDispenseConfirm() {
+            overlay.classList.remove('open');
+            overlay.setAttribute('aria-hidden', 'true');
+        }
+        if (cancelBtn) cancelBtn.addEventListener('click', closeDispenseConfirm);
+        if (okBtn) okBtn.addEventListener('click', function () {
+            closeDispenseConfirm();
+            goToCheckout();
+        });
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) closeDispenseConfirm();
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && overlay.classList.contains('open')) closeDispenseConfirm();
+        });
+    })();
+
+    restoreCart();
     renderCart();
 })();
 </script>

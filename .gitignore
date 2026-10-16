@@ -3,3 +3,6 @@ node_modules/
 .pio/
 /includes/smtp_config.php
 *.log
+
+# Local database dumps taken during development/restore work.
+/backups/

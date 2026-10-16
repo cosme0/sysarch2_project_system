@@ -9,9 +9,9 @@ session_set_cookie_params([
 ]);
 session_start();
 
-include("database.php");
+require_once __DIR__ . '/database.php';;
 
-include("auth.php");
+require_once __DIR__ . '/auth.php';;
 
 require_once __DIR__ . '/includes/config.php';
 
@@ -20,7 +20,9 @@ $success = false;
 $prefillEmail = $_SESSION['reset_demo_email'] ?? '';
 
 // This page only verifies the code. After verification the user is redirected to change_password.php
-if (isset($_POST["verify_token"])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !verifyCsrfToken($_POST['_csrf'] ?? null)) {
+    $msg = "Your form session expired. Please refresh the page and try again.";
+} elseif (isset($_POST["verify_token"])) {
     $email = filter_input(INPUT_POST, "email", FILTER_SANITIZE_EMAIL);
     $token = trim($_POST["token"] ?? "");
 
@@ -34,11 +36,32 @@ if (isset($_POST["verify_token"])) {
 
         if ($res->num_rows === 0) {
             $msg = "Invalid or expired verification code. Please request a new one.";
+            log_activity(
+                'reset_code_rejected',
+                'auth',
+                'Submitted an invalid or expired password reset code for ' . $email . '.',
+                'warning',
+                'user',
+                $email,
+                null,
+                $email
+            );
         } else {
             // Mark verified in session and redirect to change password page
             $_SESSION['reset_email_verified'] = $email;
             // Optional: set a short-lived verification timestamp
             $_SESSION['reset_verified_at'] = time();
+
+            log_activity(
+                'reset_code_verified',
+                'auth',
+                'Verified the password reset code for ' . $email . '.',
+                'notice',
+                'user',
+                $email,
+                null,
+                $email
+            );
 
             header('Location: change_password.php');
             exit;
@@ -46,7 +69,7 @@ if (isset($_POST["verify_token"])) {
     }
 }
 
-mysqli_close($conn);
+
 
 ?>
 
@@ -79,6 +102,7 @@ mysqli_close($conn);
         <?php endif; ?>
 
         <form action="reset_password.php" method="post">
+            <?php csrf_field(); ?>
             <div class="input-group">
                 <input type="email" name="email" placeholder="Registered email address" value="<?= htmlspecialchars($prefillEmail) ?>" required>
             </div>
@@ -90,7 +114,7 @@ mysqli_close($conn);
             <input type="submit" class="btn-primary" value="Verify code" name="verify_token">
         </form>
 
-        <p style="margin-top:16px;font-size:0.9rem;">
+        <p style="margin-top:16px;font-size:0.875rem;">
             <a class="link-primary" href="forgot_password.php">Request a new code</a> &nbsp;|&nbsp;
             <a class="link-primary" href="index.php">Back to login</a>
         </p>

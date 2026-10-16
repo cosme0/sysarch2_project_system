@@ -1,0 +1,3 @@
+# Stale links to the removed Cycle Counts page quietly load home.php instead.
+RewriteEngine On
+RewriteRule ^cyclecount\.php$ home.php [L]

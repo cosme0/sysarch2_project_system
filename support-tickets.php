@@ -1,33 +1,39 @@
 <?php
-include("auth.php");
+require_once __DIR__ . '/auth.php';;
 requireAdmin();
 include("includes/logout.php");
 require_once __DIR__ . '/includes/config.php';
 
-$conn = mysqli_connect("localhost", "root", "", "db_users");
+$conn = db();
 
 $adminMsg = '';
 $adminError = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $ticketId = (int)($_POST['ticket_id'] ?? 0);
+    if (!verifyCsrfToken($_POST['_csrf'] ?? null)) {
+        $adminError = 'Invalid form token. Please refresh the page and try again.';
+    } else {
+        $ticketId = (int)($_POST['ticket_id'] ?? 0);
 
-    if (isset($_POST['update_ticket'])) {
-        $status = trim($_POST['status'] ?? 'open');
-        if (!in_array($status, ['open', 'in_progress', 'resolved'], true)) {
-            $status = 'open';
+        if (isset($_POST['update_ticket'])) {
+            $status = trim($_POST['status'] ?? 'open');
+            if (!in_array($status, ['open', 'in_progress', 'resolved'], true)) {
+                $status = 'open';
+            }
+            $stmt = $conn->prepare("UPDATE support_tickets SET status = ? WHERE id = ?");
+            $stmt->bind_param("si", $status, $ticketId);
+            $stmt->execute();
+            log_activity('ticket_update', 'support', "Support ticket #$ticketId set to '$status'.", 'notice', 'ticket', (string)$ticketId);
+            $adminMsg = 'Support ticket #' . $ticketId . ' updated.';
         }
-        $stmt = $conn->prepare("UPDATE support_tickets SET status = ? WHERE id = ?");
-        $stmt->bind_param("si", $status, $ticketId);
-        $stmt->execute();
-        $adminMsg = 'Support ticket #' . $ticketId . ' updated.';
-    }
 
-    if (isset($_POST['delete_ticket'])) {
-        $stmt = $conn->prepare("DELETE FROM support_tickets WHERE id = ?");
-        $stmt->bind_param("i", $ticketId);
-        $stmt->execute();
-        $adminMsg = 'Support ticket #' . $ticketId . ' deleted.';
+        if (isset($_POST['delete_ticket'])) {
+            $stmt = $conn->prepare("DELETE FROM support_tickets WHERE id = ?");
+            $stmt->bind_param("i", $ticketId);
+            $stmt->execute();
+            log_activity('ticket_delete', 'support', "Support ticket #$ticketId deleted.", 'warning', 'ticket', (string)$ticketId);
+            $adminMsg = 'Support ticket #' . $ticketId . ' deleted.';
+        }
     }
 }
 
@@ -100,6 +106,7 @@ include("includes/site-header.php");
                     <td style="max-width:320px;"><?= nl2br(htmlspecialchars($t['message'])) ?></td>
                     <td>
                         <form method="post" class="inline-form">
+                            <?php csrf_field(); ?>
                             <input type="hidden" name="ticket_id" value="<?= $ticketId ?>">
                             <select name="status" class="mini-input" title="Status">
                                 <?php foreach (['open', 'in_progress', 'resolved'] as $s): ?>
@@ -110,7 +117,8 @@ include("includes/site-header.php");
                         </form>
                     </td>
                     <td>
-                        <form method="post" class="inline-form" onsubmit="return confirm('Delete this ticket?');">
+                        <form method="post" class="inline-form" data-confirm="Delete this ticket? This action cannot be undone.">
+                            <?php csrf_field(); ?>
                             <input type="hidden" name="ticket_id" value="<?= $ticketId ?>">
                             <button type="submit" name="delete_ticket" class="btn-mini btn-danger">Delete</button>
                         </form>
@@ -124,5 +132,5 @@ include("includes/site-header.php");
     <?php endif; ?>
 </div>
 
-<?php mysqli_close($conn); ?>
+
 <?php include("includes/site-footer.php"); ?>
